@@ -144,7 +144,8 @@ const B = {
   AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, SAND: 4, WOOD: 5,
   LEAVES: 6, COAL: 7, IRON: 8, GOLD: 9, WATER: 10,
   BEDROCK: 11, GRAVEL: 12, TORCH: 13, CHEST: 14, GLASS: 15,
-  PLANKS: 16, BRICK: 17, SNOW: 18, ICE: 19, CACTUS: 20
+  PLANKS: 16, BRICK: 17, SNOW: 18, ICE: 19, CACTUS: 20,
+  COBBLE: 21, WHEAT: 22, FENCE: 23, MOSSY: 24
 };
 
 const BLOCK_INFO = {
@@ -167,6 +168,10 @@ const BLOCK_INFO = {
   [B.SNOW]:    { name: 'Schnee',     hardness: 0.5, tool: 'shovel', color: '#eef' },
   [B.ICE]:     { name: 'Eis',        hardness: 0.5, tool: 'pickaxe', color: 'rgba(160,200,255,0.6)', trans: true },
   [B.CACTUS]:  { name: 'Kaktus',    hardness: 0.5, tool: null,      color: '#2d6b1a' },
+  [B.COBBLE]:  { name: 'Pflasterstein', hardness: 3, tool: 'pickaxe', color: '#777' },
+  [B.WHEAT]:   { name: 'Weizen',    hardness: 0.1, tool: null,     color: '#8db53c', small: true },
+  [B.FENCE]:   { name: 'Zaun',      hardness: 1,  tool: 'axe',     color: '#8b6040', small: true },
+  [B.MOSSY]:   { name: 'Moosstein', hardness: 3,  tool: 'pickaxe', color: '#5a7a3a' },
 };
 
 const DROP_TABLE = {
@@ -317,6 +322,194 @@ function getSurface(x) {
   return -1;
 }
 
+// Village generation
+function flattenArea(cx, gy, radius) {
+  for (let dx = -radius; dx <= radius; dx++) {
+    const bx = cx + dx;
+    if (bx < 1 || bx >= WORLD_W - 1) continue;
+    const sy = getSurface(bx);
+    if (sy <= 0) continue;
+    // Clear everything above gy
+    for (let y = sy; y < gy; y++) setBlock(bx, y, B.DIRT);
+    // Fill gaps below gy
+    for (let y = gy + 1; y < gy + 4; y++) {
+      if (getBlock(bx, y) === B.AIR) setBlock(bx, y, B.DIRT);
+    }
+    // Remove stuff sticking above gy (trees, etc.)
+    for (let y = gy - 1; y >= gy - 10; y--) {
+      const b = getBlock(bx, y);
+      if (b === B.LEAVES || b === B.WOOD || b === B.GRASS || b === B.CACTUS) setBlock(bx, y, B.AIR);
+    }
+    // Top surface = grass
+    if (getBlock(bx, gy) !== B.AIR) setBlock(bx, gy, B.GRASS);
+  }
+}
+
+function placeWell(cx, gy) {
+  // Stone frame
+  setBlock(cx - 1, gy,     B.MOSSY);
+  setBlock(cx,     gy,     B.MOSSY);
+  setBlock(cx + 1, gy,     B.MOSSY);
+  setBlock(cx - 1, gy - 1, B.MOSSY);
+  setBlock(cx,     gy - 1, B.AIR);
+  setBlock(cx + 1, gy - 1, B.MOSSY);
+  setBlock(cx - 1, gy - 2, B.MOSSY);
+  setBlock(cx,     gy - 2, B.WOOD);   // beam / winch
+  setBlock(cx + 1, gy - 2, B.MOSSY);
+  // Water shaft going down
+  for (let dy = 1; dy <= 6; dy++) setBlock(cx, gy + dy, B.WATER);
+  // Stone lining of shaft
+  for (let dy = 1; dy <= 5; dy++) {
+    if (getBlock(cx - 1, gy + dy) === B.AIR || getBlock(cx - 1, gy + dy) === B.DIRT || getBlock(cx - 1, gy + dy) === B.GRASS)
+      setBlock(cx - 1, gy + dy, B.MOSSY);
+    if (getBlock(cx + 1, gy + dy) === B.AIR || getBlock(cx + 1, gy + dy) === B.DIRT || getBlock(cx + 1, gy + dy) === B.GRASS)
+      setBlock(cx + 1, gy + dy, B.MOSSY);
+  }
+  // Torches beside well
+  setBlock(cx - 2, gy - 1, B.TORCH);
+  setBlock(cx + 2, gy - 1, B.TORCH);
+}
+
+function placeHouse(cx, gy, doorOnLeft) {
+  const IW = 7;  // interior width
+  const IH = 4;  // interior height
+  const TW = IW + 2; // total width with walls
+  const TH = IH + 2; // total height with floor+ceil
+  const x0 = cx - Math.floor(TW / 2);
+
+  // Clear air above house footprint + remove trees inside
+  for (let dx = -1; dx <= TW + 1; dx++) {
+    const bx = x0 + dx;
+    for (let dy = 1; dy <= TH + 4; dy++) {
+      const b = getBlock(bx, gy - dy);
+      if (b !== B.BEDROCK) setBlock(bx, gy - dy, B.AIR);
+    }
+    // Fill gaps under floor
+    for (let dy = 0; dy < 3; dy++) {
+      if (getBlock(bx, gy + dy) === B.AIR) setBlock(bx, gy + dy, B.DIRT);
+    }
+  }
+
+  // Floor (planks)
+  for (let dx = 0; dx < TW; dx++) setBlock(x0 + dx, gy, B.PLANKS);
+  // Ceiling / roof
+  for (let dx = 0; dx < TW; dx++) setBlock(x0 + dx, gy - TH + 1, B.PLANKS);
+  // Overhanging roof bits
+  setBlock(x0 - 1, gy - TH + 1, B.PLANKS);
+  setBlock(x0 + TW, gy - TH + 1, B.PLANKS);
+
+  // Left wall (full height)
+  for (let dy = 1; dy < TH - 1; dy++) setBlock(x0, gy - dy, B.PLANKS);
+  // Right wall (full height)
+  for (let dy = 1; dy < TH - 1; dy++) setBlock(x0 + TW - 1, gy - dy, B.PLANKS);
+
+  // Windows (glass at mid-height in walls)
+  const winH = Math.round(IH * 0.55);
+  setBlock(x0, gy - winH, B.GLASS);
+  setBlock(x0 + TW - 1, gy - winH, B.GLASS);
+
+  // Door opening (2 high gap at bottom of one wall)
+  const doorX = doorOnLeft ? x0 : x0 + TW - 1;
+  setBlock(doorX, gy - 1, B.AIR);
+  setBlock(doorX, gy - 2, B.AIR);
+
+  // Interior torches on ceiling
+  setBlock(x0 + 2, gy - TH + 2, B.TORCH);
+  setBlock(x0 + TW - 3, gy - TH + 2, B.TORCH);
+
+  // Exterior torch above door
+  const torchX = doorOnLeft ? x0 - 1 : x0 + TW;
+  setBlock(torchX, gy - 3, B.TORCH);
+}
+
+function placePath(x0, x1, gy) {
+  const left = Math.min(x0, x1), right = Math.max(x0, x1);
+  for (let bx = left; bx <= right; bx++) {
+    if (bx < 0 || bx >= WORLD_W) continue;
+    const sy = getSurface(bx);
+    if (sy > 0 && getBlock(bx, sy) !== B.AIR) setBlock(bx, sy, B.COBBLE);
+    // Clear 3 blocks above path
+    for (let dy = 1; dy <= 3; dy++) {
+      const b = getBlock(bx, sy - dy);
+      if (b === B.LEAVES || b === B.WOOD || b === B.CACTUS || b === B.WHEAT) setBlock(bx, sy - dy, B.AIR);
+    }
+  }
+}
+
+function placeFarm(cx, gy, width) {
+  const x0 = cx - Math.floor(width / 2);
+  for (let dx = 0; dx < width; dx++) {
+    const bx = x0 + dx;
+    if (bx < 1 || bx >= WORLD_W - 1) continue;
+    if (getBlock(bx, gy) === B.GRASS || getBlock(bx, gy) === B.DIRT) {
+      setBlock(bx, gy, B.DIRT);
+      if (getBlock(bx, gy - 1) === B.AIR) setBlock(bx, gy - 1, B.WHEAT);
+    }
+  }
+  // Fence border
+  setBlock(x0 - 1, gy - 1, B.FENCE);
+  setBlock(x0 + width, gy - 1, B.FENCE);
+}
+
+function generateVillages() {
+  let x = 40;
+  while (x < WORLD_W - 40) {
+    const spacing = 80 + (n3(x * 0.047) * 70 | 0);
+    x += spacing;
+    if (x >= WORLD_W - 40) break;
+
+    const biome = getBiome(x);
+    if (biome === 'mountains' || biome === 'desert') continue;
+
+    const sy = getSurface(x);
+    if (sy <= 0 || sy < 57 || sy > 72) continue;
+
+    // Flatness check: max height difference within 18 blocks must be ≤ 4
+    let maxDiff = 0;
+    for (let dx = -18; dx <= 18; dx++) {
+      const s = getSurface(x + dx);
+      if (s > 0) maxDiff = Math.max(maxDiff, Math.abs(s - sy));
+    }
+    if (maxDiff > 4) continue;
+
+    // Flatten the village area
+    flattenArea(x, sy, 38);
+
+    // Well at center
+    placeWell(x, sy);
+
+    // Paths left and right of well
+    placePath(x - 28, x - 3, sy);
+    placePath(x + 3, x + 28, sy);
+
+    // Houses on each side
+    placeHouse(x - 16, sy, false); // door faces right (toward center)
+    placeHouse(x + 16, sy, true);  // door faces left  (toward center)
+
+    // Bigger villages get two extra houses
+    if (n3(x * 0.013) > 0.4) {
+      placeHouse(x - 30, sy, false);
+      placeHouse(x + 30, sy, true);
+      placePath(x - 40, x - 26, sy);
+      placePath(x + 26, x + 40, sy);
+    }
+
+    // Farm plots left and right of path
+    placeFarm(x - 9, sy, 4);
+    placeFarm(x + 7, sy, 4);
+
+    // Extra torches along path every 5 blocks
+    for (let dx = -28; dx <= 28; dx += 8) {
+      if (Math.abs(dx) < 3) continue;
+      const bx = x + dx;
+      const pathY = getSurface(bx);
+      if (pathY > 0 && getBlock(bx, pathY) === B.COBBLE) {
+        setBlock(bx, pathY - 1, B.TORCH);
+      }
+    }
+  }
+}
+
 // Light calculation
 function calcLight(timeOfDay) {
   const sunlight = Math.max(0, Math.sin(timeOfDay * Math.PI * 2));
@@ -328,7 +521,7 @@ function calcLight(timeOfDay) {
     let light = ambientLight;
     for (let y = 0; y < WORLD_H; y++) {
       const b = getBlock(x, y);
-      if (b !== B.AIR && b !== B.WATER && b !== B.LEAVES && b !== B.GLASS && b !== B.ICE) {
+      if (b !== B.AIR && b !== B.WATER && b !== B.LEAVES && b !== B.GLASS && b !== B.ICE && b !== B.WHEAT && b !== B.FENCE) {
         light *= 0.6;
       }
       lightMap[idx(x, y)] = Math.max(lightMap[idx(x, y)], light);
@@ -508,6 +701,53 @@ function drawBlock(ctx, type, px, py, size) {
     ctx.fillRect(px, py + size * 0.2, size * 0.3, size * 0.2);
     ctx.fillRect(px + size * 0.7, py + size * 0.4, size * 0.3, size * 0.2);
   }
+  if (type === B.COBBLE) {
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(px + size * 0.5, py); ctx.lineTo(px + size * 0.5, py + size * 0.45);
+    ctx.moveTo(px, py + size * 0.5); ctx.lineTo(px + size * 0.45, py + size * 0.5);
+    ctx.moveTo(px + size * 0.55, py + size * 0.5); ctx.lineTo(px + size, py + size * 0.5);
+    ctx.moveTo(px + size * 0.25, py + size * 0.5); ctx.lineTo(px + size * 0.25, py + size);
+    ctx.moveTo(px + size * 0.75, py + size * 0.5); ctx.lineTo(px + size * 0.75, py + size);
+    ctx.stroke();
+  }
+  if (type === B.WHEAT) {
+    ctx.clearRect(px, py, size, size);
+    const stalkW = Math.max(2, size * 0.08);
+    const stalkCount = 4;
+    for (let i = 0; i < stalkCount; i++) {
+      const sx = px + size * (0.1 + i * 0.25);
+      // stalk
+      ctx.fillStyle = '#6a8a2a';
+      ctx.fillRect(sx, py + size * 0.3, stalkW, size * 0.7);
+      // ear (top)
+      ctx.fillStyle = '#c8a830';
+      ctx.fillRect(sx - stalkW, py, stalkW * 3, size * 0.35);
+      // leaves
+      ctx.fillStyle = '#8db53c';
+      ctx.fillRect(sx - stalkW * 2, py + size * 0.35, stalkW * 2, stalkW);
+      ctx.fillRect(sx + stalkW, py + size * 0.55, stalkW * 2, stalkW);
+    }
+  }
+  if (type === B.FENCE) {
+    ctx.clearRect(px, py, size, size);
+    ctx.fillStyle = '#8b6040';
+    // vertical post
+    ctx.fillRect(px + size * 0.4, py, size * 0.2, size);
+    // horizontal rails
+    ctx.fillRect(px, py + size * 0.2, size, size * 0.12);
+    ctx.fillRect(px, py + size * 0.65, size, size * 0.12);
+  }
+  if (type === B.MOSSY) {
+    ctx.strokeStyle = '#3d5a2a'; ctx.lineWidth = 0.5;
+    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+    ctx.fillStyle = 'rgba(60,110,40,0.4)';
+    ctx.fillRect(px, py, size * 0.4, size * 0.3);
+    ctx.fillRect(px + size * 0.6, py + size * 0.6, size * 0.4, size * 0.4);
+    ctx.fillRect(px + size * 0.2, py + size * 0.7, size * 0.3, size * 0.3);
+  }
   ctx.restore();
 }
 
@@ -531,7 +771,7 @@ function getMouseBlock() {
 }
 
 function isBlockSolid(type) {
-  return type !== B.AIR && type !== B.WATER && type !== B.TORCH;
+  return type !== B.AIR && type !== B.WATER && type !== B.TORCH && type !== B.WHEAT && type !== B.FENCE;
 }
 
 function playerAABB() {
@@ -979,6 +1219,7 @@ document.getElementById('start-btn').addEventListener('click', () => {
   document.getElementById('overlay').style.display = 'none';
   if (!running) {
     generateWorld();
+    generateVillages();
     initInventory();
     spawnPlayer();
     lightDirty = true;
