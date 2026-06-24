@@ -3,333 +3,991 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snake</title>
+  <title>MiniCraft</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
-      background: #0a0a0f;
-      color: #e0e0e0;
-      font-family: 'Courier New', monospace;
+      background: #1a1a2e;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      gap: 20px;
+      font-family: 'Courier New', monospace;
+      color: #fff;
+      overflow: hidden;
+      user-select: none;
     }
-
-    h1 {
-      font-size: 2.5rem;
-      letter-spacing: 8px;
-      text-transform: uppercase;
-      color: #4ade80;
-      text-shadow: 0 0 20px #4ade8066;
-    }
-
-    #scoreboard {
-      display: flex;
-      gap: 40px;
-      font-size: 1rem;
-      letter-spacing: 2px;
-    }
-
-    #scoreboard span {
-      color: #888;
-    }
-
-    #scoreboard strong {
-      color: #4ade80;
-      font-size: 1.2rem;
-    }
-
-    #game-container {
-      position: relative;
-    }
-
-    canvas {
-      border: 2px solid #4ade8044;
-      border-radius: 4px;
-      box-shadow: 0 0 40px #4ade8022, inset 0 0 40px #00000066;
-      display: block;
-    }
-
-    #overlay {
+    #ui { position: relative; }
+    canvas { display: block; cursor: crosshair; image-rendering: pixelated; }
+    #hud {
       position: absolute;
-      inset: 0;
+      bottom: 0; left: 0; right: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
+      pointer-events: none;
+    }
+    #hotbar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+      background: rgba(0,0,0,0.5);
+      padding: 6px;
+      border-radius: 4px;
+      border: 2px solid #555;
+    }
+    .slot {
+      width: 44px; height: 44px;
+      border: 2px solid #555;
+      border-radius: 3px;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
       justify-content: center;
-      background: rgba(10, 10, 15, 0.85);
-      border-radius: 2px;
+      position: relative;
+      flex-direction: column;
+      font-size: 9px;
+      color: #ccc;
+    }
+    .slot.active { border-color: #fff; background: rgba(255,255,255,0.15); }
+    .slot canvas { border: none; image-rendering: pixelated; }
+    .slot .count {
+      position: absolute;
+      bottom: 1px; right: 3px;
+      font-size: 10px;
+      color: #fff;
+      text-shadow: 1px 1px 0 #000;
+    }
+    #stats {
+      position: absolute;
+      top: 8px; left: 8px;
+      background: rgba(0,0,0,0.5);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      line-height: 1.8;
+      color: #ddd;
+      pointer-events: none;
+    }
+    #health-bar {
+      display: flex; gap: 2px; margin-bottom: 4px;
+    }
+    .heart { font-size: 14px; }
+    #overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.75);
       gap: 16px;
     }
-
-    #overlay h2 {
-      font-size: 1.8rem;
-      letter-spacing: 4px;
-      color: #4ade80;
+    #overlay h1 { font-size: 2.5rem; color: #4ade80; text-shadow: 0 0 20px #4ade8066; letter-spacing: 4px; }
+    #overlay p { color: #aaa; font-size: 0.85rem; line-height: 1.8; text-align: center; }
+    #overlay button {
+      padding: 12px 36px; background: transparent;
+      border: 2px solid #4ade80; color: #4ade80;
+      font-family: 'Courier New', monospace; font-size: 1rem;
+      letter-spacing: 3px; text-transform: uppercase; cursor: pointer;
+      border-radius: 2px; transition: all 0.2s;
     }
-
-    #overlay p {
-      color: #888;
-      letter-spacing: 1px;
-      font-size: 0.9rem;
+    #overlay button:hover { background: #4ade8022; box-shadow: 0 0 20px #4ade8044; }
+    #msg {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); padding: 6px 16px; border-radius: 4px;
+      font-size: 13px; color: #fff; pointer-events: none; opacity: 0;
+      transition: opacity 0.3s;
     }
-
-    #overlay .final-score {
-      font-size: 1.1rem;
-      color: #e0e0e0;
-      letter-spacing: 2px;
-    }
-
-    button {
-      margin-top: 8px;
-      padding: 12px 32px;
-      background: transparent;
-      border: 2px solid #4ade80;
-      color: #4ade80;
-      font-family: 'Courier New', monospace;
-      font-size: 1rem;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      cursor: pointer;
-      border-radius: 2px;
-      transition: all 0.2s;
-    }
-
-    button:hover {
-      background: #4ade8022;
-      box-shadow: 0 0 20px #4ade8044;
-    }
-
-    #controls {
-      color: #555;
-      font-size: 0.78rem;
-      letter-spacing: 2px;
-      text-align: center;
-      line-height: 1.8;
+    #tooltip {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.5); padding: 6px 10px;
+      border-radius: 4px; font-size: 11px; color: #ccc;
+      pointer-events: none; line-height: 1.7;
     }
   </style>
 </head>
 <body>
-  <h1>Snake</h1>
-
-  <div id="scoreboard">
-    <div><span>SCORE </span><strong id="score">0</strong></div>
-    <div><span>HIGHSCORE </span><strong id="highscore">0</strong></div>
-    <div><span>LEVEL </span><strong id="level">1</strong></div>
+<div id="ui">
+  <canvas id="canvas"></canvas>
+  <div id="hud">
+    <div id="hotbar"></div>
   </div>
-
-  <div id="game-container">
-    <canvas id="canvas" width="500" height="500"></canvas>
-    <div id="overlay">
-      <h2>SNAKE</h2>
-      <p>Friss die Äpfel, meide dich selbst</p>
-      <button id="start-btn">STARTEN</button>
-    </div>
+  <div id="stats">
+    <div id="health-bar"></div>
+    <div id="stat-pos"></div>
+    <div id="stat-biome"></div>
   </div>
-
-  <div id="controls">
-    WASD / PFEILTASTEN &nbsp;·&nbsp; PAUSE: P &nbsp;·&nbsp; NEU: R
+  <div id="msg"></div>
+  <div id="tooltip">
+    WASD / Pfeiltasten: Bewegen<br>
+    Linksklick: Block abbauen<br>
+    Rechtsklick: Block setzen<br>
+    1-9 / Mausrad: Slot wählen<br>
+    E: Inventar öffnen
   </div>
+  <div id="overlay">
+    <h1>MiniCraft</h1>
+    <p>Erkunde die Welt · Baue was du willst<br>Überlebe die Nacht</p>
+    <button id="start-btn">SPIELEN</button>
+  </div>
+</div>
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const overlay = document.getElementById('overlay');
-    const scoreEl = document.getElementById('score');
-    const highscoreEl = document.getElementById('highscore');
-    const levelEl = document.getElementById('level');
-    const startBtn = document.getElementById('start-btn');
+<script>
+const W = 900, H = 600;
+const TILE = 32;
+const WORLD_W = 512;
+const WORLD_H = 128;
+const GRAVITY = 0.55;
+const JUMP_V = -12;
 
-    const GRID = 20;
-    const COLS = canvas.width / GRID;
-    const ROWS = canvas.height / GRID;
+// Block types
+const B = {
+  AIR: 0, GRASS: 1, DIRT: 2, STONE: 3, SAND: 4, WOOD: 5,
+  LEAVES: 6, COAL: 7, IRON: 8, GOLD: 9, WATER: 10,
+  BEDROCK: 11, GRAVEL: 12, TORCH: 13, CHEST: 14, GLASS: 15,
+  PLANKS: 16, BRICK: 17, SNOW: 18, ICE: 19, CACTUS: 20
+};
 
-    let snake, dir, nextDir, food, score, highscore, level, gameLoop, paused, alive;
+const BLOCK_INFO = {
+  [B.GRASS]:   { name: 'Gras',       hardness: 1,  tool: 'shovel',  color: '#4a7c27', top: '#5a9e30', side: '#6b4226' },
+  [B.DIRT]:    { name: 'Erde',       hardness: 1,  tool: 'shovel',  color: '#6b4226' },
+  [B.STONE]:   { name: 'Stein',      hardness: 3,  tool: 'pickaxe', color: '#888' },
+  [B.SAND]:    { name: 'Sand',       hardness: 1,  tool: 'shovel',  color: '#e8d87a' },
+  [B.WOOD]:    { name: 'Holz',       hardness: 2,  tool: 'axe',     color: '#6b4226', center: '#3d2b0f' },
+  [B.LEAVES]:  { name: 'Blätter',    hardness: 0.5, tool: 'axe',   color: '#2d6b1a', trans: true },
+  [B.COAL]:    { name: 'Kohle',      hardness: 4,  tool: 'pickaxe', color: '#888', ore: '#222' },
+  [B.IRON]:    { name: 'Eisen',      hardness: 5,  tool: 'pickaxe', color: '#888', ore: '#c8a87a' },
+  [B.GOLD]:    { name: 'Gold',       hardness: 5,  tool: 'pickaxe', color: '#888', ore: '#ffd700' },
+  [B.WATER]:   { name: 'Wasser',     hardness: 0,  tool: null,      color: '#1a6bb5', trans: true },
+  [B.BEDROCK]: { name: 'Grundfels',  hardness: 999, tool: 'pickaxe', color: '#333' },
+  [B.GRAVEL]:  { name: 'Kies',       hardness: 1,  tool: 'shovel',  color: '#777' },
+  [B.TORCH]:   { name: 'Fackel',     hardness: 0.1, tool: null,     color: '#f90', small: true },
+  [B.GLASS]:   { name: 'Glas',       hardness: 0.5, tool: 'pickaxe', color: 'rgba(150,200,255,0.4)', trans: true },
+  [B.PLANKS]:  { name: 'Holzbretter', hardness: 2, tool: 'axe',     color: '#8b6040' },
+  [B.BRICK]:   { name: 'Ziegel',     hardness: 4,  tool: 'pickaxe', color: '#8b3a2a' },
+  [B.SNOW]:    { name: 'Schnee',     hardness: 0.5, tool: 'shovel', color: '#eef' },
+  [B.ICE]:     { name: 'Eis',        hardness: 0.5, tool: 'pickaxe', color: 'rgba(160,200,255,0.6)', trans: true },
+  [B.CACTUS]:  { name: 'Kaktus',    hardness: 0.5, tool: null,      color: '#2d6b1a' },
+};
 
-    highscore = parseInt(localStorage.getItem('snake-hs') || '0');
-    highscoreEl.textContent = highscore;
+const DROP_TABLE = {
+  [B.GRASS]: B.DIRT, [B.COAL]: B.COAL, [B.IRON]: B.IRON,
+  [B.GOLD]: B.GOLD, [B.LEAVES]: null,
+};
 
-    function randomCell(exclude = []) {
-      let cell;
-      do {
-        cell = {
-          x: Math.floor(Math.random() * COLS),
-          y: Math.floor(Math.random() * ROWS)
-        };
-      } while (exclude.some(e => e.x === cell.x && e.y === cell.y));
-      return cell;
-    }
+function blockDrop(type) {
+  if (type in DROP_TABLE) return DROP_TABLE[type];
+  return type;
+}
 
-    function init() {
-      snake = [
-        { x: 10, y: 10 },
-        { x: 9,  y: 10 },
-        { x: 8,  y: 10 },
-      ];
-      dir = { x: 1, y: 0 };
-      nextDir = { x: 1, y: 0 };
-      food = randomCell(snake);
-      score = 0;
-      level = 1;
-      paused = false;
-      alive = true;
-      scoreEl.textContent = 0;
-      levelEl.textContent = 1;
-    }
+// Simple noise
+function makeNoise(seed) {
+  let s = seed | 0;
+  function hash(n) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  }
+  return function(x) {
+    const xi = Math.floor(x);
+    const t = x - xi;
+    const a = hash(xi * 127 + 1), b = hash((xi + 1) * 127 + 1);
+    const u = t * t * (3 - 2 * t);
+    return a + (b - a) * u;
+  };
+}
 
-    function speed() {
-      return Math.max(60, 180 - (level - 1) * 15);
-    }
+function octaveNoise(noiseFn, x, octaves, persistence, scale) {
+  let val = 0, amp = 1, freq = scale, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    val += noiseFn(x * freq) * amp;
+    max += amp;
+    amp *= persistence;
+    freq *= 2;
+  }
+  return val / max;
+}
 
-    function step() {
-      if (paused || !alive) return;
+// World generation
+const SEED = Math.random() * 99999 | 0;
+const n1 = makeNoise(SEED);
+const n2 = makeNoise(SEED + 1);
+const n3 = makeNoise(SEED + 2);
+const n4 = makeNoise(SEED + 3);
 
-      dir = nextDir;
+let world = new Uint8Array(WORLD_W * WORLD_H);
+let lightMap = new Float32Array(WORLD_W * WORLD_H);
 
-      const head = {
-        x: (snake[0].x + dir.x + COLS) % COLS,
-        y: (snake[0].y + dir.y + ROWS) % ROWS,
-      };
+function idx(x, y) { return y * WORLD_W + x; }
+function getBlock(x, y) {
+  if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return B.BEDROCK;
+  return world[idx(x, y)];
+}
+function setBlock(x, y, type) {
+  if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return;
+  world[idx(x, y)] = type;
+}
 
-      if (snake.some(s => s.x === head.x && s.y === head.y)) {
-        gameOver();
-        return;
-      }
+function getBiome(x) {
+  const v = octaveNoise(n4, x, 2, 0.5, 0.003);
+  if (v < 0.3) return 'desert';
+  if (v < 0.45) return 'plains';
+  if (v < 0.65) return 'forest';
+  if (v < 0.8) return 'taiga';
+  return 'mountains';
+}
 
-      snake.unshift(head);
+function generateWorld() {
+  for (let x = 0; x < WORLD_W; x++) {
+    const biome = getBiome(x);
+    const baseH = biome === 'mountains' ? 70 : biome === 'desert' ? 58 : 62;
+    const height = Math.round(
+      baseH + octaveNoise(n1, x, 4, 0.5, 0.01) * (biome === 'mountains' ? 28 : 14)
+    );
 
-      if (head.x === food.x && head.y === food.y) {
-        score += level * 10;
-        scoreEl.textContent = score;
-        if (score > highscore) {
-          highscore = score;
-          highscoreEl.textContent = highscore;
-          localStorage.setItem('snake-hs', highscore);
-        }
-        level = Math.floor(score / 100) + 1;
-        levelEl.textContent = level;
-        food = randomCell(snake);
-        restartLoop();
+    for (let y = 0; y < WORLD_H; y++) {
+      if (y >= WORLD_H - 1) { setBlock(x, y, B.BEDROCK); continue; }
+      if (y > height) { setBlock(x, y, B.AIR); continue; }
+
+      const depth = height - y;
+
+      if (biome === 'desert') {
+        if (depth === 0) setBlock(x, y, B.SAND);
+        else if (depth < 5) setBlock(x, y, B.SAND);
+        else if (depth < 10) setBlock(x, y, B.GRAVEL);
+        else setBlock(x, y, B.STONE);
+      } else if (biome === 'taiga') {
+        if (depth === 0) setBlock(x, y, y < 58 ? B.SNOW : B.GRASS);
+        else if (depth < 4) setBlock(x, y, B.DIRT);
+        else setBlock(x, y, B.STONE);
       } else {
-        snake.pop();
+        if (depth === 0) setBlock(x, y, B.GRASS);
+        else if (depth < 5) setBlock(x, y, B.DIRT);
+        else setBlock(x, y, B.STONE);
       }
 
-      draw();
+      // Ores
+      if (getBlock(x, y) === B.STONE) {
+        const oreR = n2(x * 7.3 + y * 3.1);
+        if (oreR < 0.04) setBlock(x, y, B.COAL);
+        else if (oreR < 0.055 && y > height - 30) setBlock(x, y, B.IRON);
+        else if (oreR < 0.062 && y > height - 20) setBlock(x, y, B.GOLD);
+        else if (oreR < 0.065 && y > height - 8) setBlock(x, y, B.GRAVEL);
+      }
     }
 
-    function draw() {
-      ctx.fillStyle = '#0a0a0f';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Water fill
+    const waterLevel = 60;
+    for (let y = waterLevel; y < WORLD_H - 1; y++) {
+      if (getBlock(x, y) === B.AIR) setBlock(x, y, B.WATER);
+    }
 
-      // Grid dots
-      ctx.fillStyle = '#1a1a2a';
-      for (let x = 0; x < COLS; x++) {
-        for (let y = 0; y < ROWS; y++) {
-          ctx.fillRect(x * GRID + GRID / 2 - 1, y * GRID + GRID / 2 - 1, 2, 2);
+    // Surface features
+    const surfaceY = getSurface(x);
+    if (surfaceY <= 0) continue;
+    const biomeNow = getBiome(x);
+
+    // Trees
+    if (biomeNow === 'forest' || biomeNow === 'taiga' || biomeNow === 'plains') {
+      const treeChance = biomeNow === 'forest' ? 0.08 : biomeNow === 'taiga' ? 0.05 : 0.03;
+      if (n3(x * 0.37) < treeChance && surfaceY > waterLevel) {
+        const treeH = biomeNow === 'taiga' ? 8 + (n3(x) * 4 | 0) : 5 + (n3(x) * 3 | 0);
+        const leafType = biomeNow === 'taiga' ? B.SNOW : B.LEAVES;
+        for (let ty = 0; ty < treeH; ty++) setBlock(x, surfaceY - 1 - ty, B.WOOD);
+        const top = surfaceY - treeH;
+        for (let ly = -2; ly <= 1; ly++) {
+          for (let lx = -2; lx <= 2; lx++) {
+            if (Math.abs(lx) + Math.abs(ly) <= 3 && getBlock(x + lx, top + ly) === B.AIR)
+              setBlock(x + lx, top + ly, B.LEAVES);
+          }
         }
       }
-
-      // Food
-      const fx = food.x * GRID + GRID / 2;
-      const fy = food.y * GRID + GRID / 2;
-      ctx.save();
-      ctx.shadowColor = '#f87171';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = '#f87171';
-      ctx.beginPath();
-      ctx.arc(fx, fy, GRID / 2 - 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // Snake
-      snake.forEach((seg, i) => {
-        const ratio = 1 - i / snake.length;
-        const alpha = 0.4 + ratio * 0.6;
-        ctx.save();
-        ctx.shadowColor = `rgba(74, 222, 128, ${ratio * 0.5})`;
-        ctx.shadowBlur = ratio * 10;
-        ctx.fillStyle = `rgba(74, 222, 128, ${alpha})`;
-        const pad = i === 0 ? 1 : 2;
-        ctx.beginPath();
-        ctx.roundRect(
-          seg.x * GRID + pad,
-          seg.y * GRID + pad,
-          GRID - pad * 2,
-          GRID - pad * 2,
-          i === 0 ? 4 : 3
-        );
-        ctx.fill();
-        ctx.restore();
-      });
-
-      // Eyes on head
-      const h = snake[0];
-      ctx.fillStyle = '#0a0a0f';
-      const eyeOffset = dir.y !== 0
-        ? [{ x: -4, y: dir.y * 3 }, { x: 4, y: dir.y * 3 }]
-        : [{ x: dir.x * 3, y: -4 }, { x: dir.x * 3, y: 4 }];
-      eyeOffset.forEach(e => {
-        ctx.beginPath();
-        ctx.arc(h.x * GRID + GRID / 2 + e.x, h.y * GRID + GRID / 2 + e.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-      });
     }
 
-    function gameOver() {
-      alive = false;
-      clearInterval(gameLoop);
-
-      overlay.innerHTML = `
-        <h2>GAME OVER</h2>
-        <p class="final-score">PUNKTE: ${score}</p>
-        ${score >= highscore && score > 0 ? '<p style="color:#fbbf24;letter-spacing:2px">NEUER HIGHSCORE!</p>' : ''}
-        <button id="start-btn">NOCHMAL</button>
-      `;
-      overlay.style.display = 'flex';
-      document.getElementById('start-btn').addEventListener('click', startGame);
+    // Cactus in desert
+    if (biomeNow === 'desert' && n3(x * 0.29) < 0.05 && surfaceY > waterLevel) {
+      const ch = 2 + (n3(x * 0.5) * 3 | 0);
+      for (let cy = 0; cy < ch; cy++) setBlock(x, surfaceY - 1 - cy, B.CACTUS);
     }
+  }
+}
 
-    function restartLoop() {
-      clearInterval(gameLoop);
-      gameLoop = setInterval(step, speed());
-    }
+function getSurface(x) {
+  for (let y = 0; y < WORLD_H; y++) {
+    if (getBlock(x, y) !== B.AIR) return y;
+  }
+  return -1;
+}
 
-    function startGame() {
-      overlay.style.display = 'none';
-      init();
-      restartLoop();
-      draw();
-    }
+// Light calculation
+function calcLight(timeOfDay) {
+  const sunlight = Math.max(0, Math.sin(timeOfDay * Math.PI * 2));
+  const ambientLight = 0.1 + sunlight * 0.9;
+  lightMap.fill(0);
 
-    document.addEventListener('keydown', e => {
-      const map = {
-        ArrowUp:    { x: 0, y: -1 }, w: { x: 0, y: -1 }, W: { x: 0, y: -1 },
-        ArrowDown:  { x: 0, y:  1 }, s: { x: 0, y:  1 }, S: { x: 0, y:  1 },
-        ArrowLeft:  { x: -1, y: 0 }, a: { x: -1, y: 0 }, A: { x: -1, y: 0 },
-        ArrowRight: { x: 1, y:  0 }, d: { x: 1,  y: 0 }, D: { x: 1,  y: 0 },
-      };
-      const d = map[e.key];
-      if (d && alive) {
-        if (d.x !== -dir.x || d.y !== -dir.y) nextDir = d;
-        e.preventDefault();
+  // Propagate sunlight downward
+  for (let x = 0; x < WORLD_W; x++) {
+    let light = ambientLight;
+    for (let y = 0; y < WORLD_H; y++) {
+      const b = getBlock(x, y);
+      if (b !== B.AIR && b !== B.WATER && b !== B.LEAVES && b !== B.GLASS && b !== B.ICE) {
+        light *= 0.6;
       }
-      if ((e.key === 'p' || e.key === 'P') && alive) {
-        paused = !paused;
-        if (!paused) draw();
-      }
-      if (e.key === 'r' || e.key === 'R') {
-        clearInterval(gameLoop);
-        startGame();
-      }
-    });
+      lightMap[idx(x, y)] = Math.max(lightMap[idx(x, y)], light);
+    }
+  }
+  return ambientLight;
+}
 
-    startBtn.addEventListener('click', startGame);
+// Inventory
+const HOTBAR_SLOTS = 9;
+const INV_SLOTS = 36;
+let inventory = new Array(INV_SLOTS).fill(null).map(() => ({ type: 0, count: 0 }));
+let hotbarActive = 0;
 
-    draw();
-  </script>
+// Pre-fill some starting items
+function initInventory() {
+  const starters = [B.PLANKS, B.DIRT, B.STONE, B.GLASS, B.BRICK, B.TORCH, B.SAND, B.WOOD, B.LEAVES];
+  starters.forEach((t, i) => { inventory[i].type = t; inventory[i].count = 64; });
+}
+
+function addItem(type, count = 1) {
+  if (!type || type === B.AIR) return;
+  for (let i = 0; i < INV_SLOTS; i++) {
+    if (inventory[i].type === type && inventory[i].count < 64) {
+      inventory[i].count = Math.min(64, inventory[i].count + count);
+      return true;
+    }
+  }
+  for (let i = 0; i < INV_SLOTS; i++) {
+    if (inventory[i].count === 0) {
+      inventory[i].type = type; inventory[i].count = count;
+      return true;
+    }
+  }
+  return false;
+}
+
+function getHotbarItem() {
+  return inventory[hotbarActive];
+}
+
+// Player
+const player = {
+  x: WORLD_W * TILE / 2, y: 0,
+  vx: 0, vy: 0,
+  w: 26, h: 48,
+  onGround: false,
+  hp: 10, maxHp: 10,
+  breakProgress: 0,
+  breakTarget: null,
+  swimTimer: 0,
+  inWater: false,
+};
+
+function spawnPlayer() {
+  const cx = WORLD_W / 2 | 0;
+  const sy = getSurface(cx);
+  player.x = cx * TILE + TILE / 2 - player.w / 2;
+  player.y = (sy - 3) * TILE;
+}
+
+// Camera
+let camX = 0, camY = 0;
+
+// Input
+const keys = {};
+let mouse = { x: 0, y: 0, left: false, right: false };
+let mouseTarget = null;
+let rightClickThrottle = 0;
+
+// Time
+let time = 0; // 0-1 per day
+const DAY_LEN = 1200; // seconds * 60
+
+// Message system
+let msgTimer = 0;
+function showMsg(text) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.style.opacity = '1';
+  msgTimer = 180;
+}
+
+// Canvas setup
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  const maxW = Math.min(window.innerWidth, W);
+  const maxH = Math.min(window.innerHeight - 80, H);
+  const scale = Math.min(maxW / W, maxH / H);
+  canvas.width = W;
+  canvas.height = H;
+  canvas.style.width = (W * scale) + 'px';
+  canvas.style.height = (H * scale) + 'px';
+  document.getElementById('ui').style.width = (W * scale) + 'px';
+  document.getElementById('ui').style.height = (H * scale) + 'px';
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Block rendering
+function drawBlock(ctx, type, px, py, size) {
+  const info = BLOCK_INFO[type];
+  if (!info) return;
+  ctx.save();
+  ctx.fillStyle = info.color;
+  ctx.fillRect(px, py, size, size);
+
+  if (info.top && size === TILE) {
+    ctx.fillStyle = info.top;
+    ctx.fillRect(px, py, size, size / 4);
+  }
+  if (info.ore) {
+    ctx.fillStyle = info.ore;
+    for (let d = 0; d < 4; d++) {
+      const ox = (d % 2) * (size * 0.4) + size * 0.1;
+      const oy = (d > 1 ? 1 : 0) * (size * 0.4) + size * 0.1;
+      ctx.fillRect(px + ox, py + oy, size * 0.2, size * 0.2);
+    }
+  }
+  if (info.center && size === TILE) {
+    ctx.fillStyle = info.center;
+    ctx.fillRect(px + size * 0.3, py, size * 0.4, size);
+  }
+  if (type === B.WOOD) {
+    ctx.strokeStyle = '#2d1a0a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+    for (let ly = 1; ly < 4; ly++) {
+      ctx.beginPath(); ctx.moveTo(px, py + ly * size / 4); ctx.lineTo(px + size, py + ly * size / 4); ctx.stroke();
+    }
+  }
+  if (type === B.PLANKS) {
+    ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+    ctx.beginPath(); ctx.moveTo(px, py + size / 2); ctx.lineTo(px + size, py + size / 2); ctx.stroke();
+  }
+  if (type === B.BRICK) {
+    ctx.strokeStyle = '#5a2018'; ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+    ctx.beginPath();
+    ctx.moveTo(px, py + size / 2); ctx.lineTo(px + size, py + size / 2);
+    ctx.moveTo(px + size / 4, py); ctx.lineTo(px + size / 4, py + size / 2);
+    ctx.moveTo(px + 3 * size / 4, py); ctx.lineTo(px + 3 * size / 4, py + size / 2);
+    ctx.moveTo(px + size / 2, py + size / 2); ctx.lineTo(px + size / 2, py + size);
+    ctx.stroke();
+  }
+  if (type === B.STONE) {
+    ctx.strokeStyle = '#666'; ctx.lineWidth = 0.5;
+    ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
+  }
+  if (type === B.GRASS) {
+    ctx.strokeStyle = '#3d6b20'; ctx.lineWidth = 0.5;
+    for (let gx = 2; gx < size - 2; gx += 4) {
+      ctx.beginPath(); ctx.moveTo(px + gx, py); ctx.lineTo(px + gx, py + size / 4); ctx.stroke();
+    }
+  }
+  if (type === B.TORCH) {
+    ctx.fillStyle = '#555'; ctx.fillRect(px + size * 0.4, py + size * 0.3, size * 0.2, size * 0.6);
+    ctx.fillStyle = '#ff6'; ctx.beginPath();
+    ctx.arc(px + size / 2, py + size * 0.3, size * 0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f90'; ctx.beginPath();
+    ctx.arc(px + size / 2, py + size * 0.35, size * 0.08, 0, Math.PI * 2); ctx.fill();
+  }
+  if (type === B.WATER) {
+    ctx.fillStyle = 'rgba(26,107,181,0.6)';
+    ctx.fillRect(px, py, size, size);
+    ctx.fillStyle = 'rgba(100,160,220,0.3)';
+    for (let wx = 0; wx < size; wx += size / 4) {
+      ctx.fillRect(px + wx, py + size * 0.3, size / 5, size * 0.1);
+    }
+  }
+  if (type === B.CACTUS) {
+    ctx.fillStyle = '#1d5210';
+    ctx.fillRect(px + size * 0.1, py, size * 0.8, size);
+    ctx.fillRect(px, py + size * 0.2, size * 0.3, size * 0.2);
+    ctx.fillRect(px + size * 0.7, py + size * 0.4, size * 0.3, size * 0.2);
+  }
+  ctx.restore();
+}
+
+// Main game state
+let running = false;
+let frameId;
+let lightDirty = true;
+let ambientLight = 1;
+
+function worldToScreen(wx, wy) {
+  return { x: wx - camX, y: wy - camY };
+}
+
+function screenToWorld(sx, sy) {
+  return { x: sx + camX, y: sy + camY };
+}
+
+function getMouseBlock() {
+  const pos = screenToWorld(mouse.x, mouse.y);
+  return { bx: Math.floor(pos.x / TILE), by: Math.floor(pos.y / TILE) };
+}
+
+function isBlockSolid(type) {
+  return type !== B.AIR && type !== B.WATER && type !== B.TORCH;
+}
+
+function playerAABB() {
+  return { x: player.x, y: player.y, w: player.w, h: player.h };
+}
+
+function blockAABB(bx, by) {
+  return { x: bx * TILE, y: by * TILE, w: TILE, h: TILE };
+}
+
+function aabbOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x &&
+         a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function resolveCollision() {
+  const px = player.x, py = player.y;
+  const pw = player.w, ph = player.h;
+  player.onGround = false;
+
+  const x0 = Math.floor(px / TILE) - 1;
+  const x1 = Math.ceil((px + pw) / TILE) + 1;
+  const y0 = Math.floor(py / TILE) - 1;
+  const y1 = Math.ceil((py + ph) / TILE) + 1;
+
+  for (let bx = x0; bx <= x1; bx++) {
+    for (let by = y0; by <= y1; by++) {
+      if (!isBlockSolid(getBlock(bx, by))) continue;
+      const b = blockAABB(bx, by);
+      if (!aabbOverlap(playerAABB(), b)) continue;
+
+      const overlapX = Math.min(px + pw - b.x, b.x + b.w - px);
+      const overlapY = Math.min(py + ph - b.y, b.y + b.h - py);
+
+      if (overlapX < overlapY) {
+        if (px + pw / 2 < b.x + b.w / 2) { player.x -= overlapX; player.vx = Math.min(player.vx, 0); }
+        else { player.x += overlapX; player.vx = Math.max(player.vx, 0); }
+      } else {
+        if (py + ph / 2 < b.y + b.h / 2) {
+          player.y -= overlapY; player.vy = Math.min(player.vy, 0);
+          player.onGround = true;
+        } else {
+          player.y += overlapY; player.vy = Math.max(player.vy, 0);
+        }
+      }
+    }
+  }
+}
+
+function updatePhysics() {
+  const speed = player.inWater ? 3 : 5;
+  const accel = player.inWater ? 0.4 : 0.7;
+  const friction = player.onGround ? 0.75 : 0.92;
+
+  let dx = 0;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1;
+
+  player.vx += dx * accel;
+  player.vx = Math.max(-speed, Math.min(speed, player.vx));
+  player.vx *= friction;
+  if (Math.abs(player.vx) < 0.1) player.vx = 0;
+
+  if (player.inWater) {
+    player.vy += GRAVITY * 0.15;
+    player.vy = Math.max(-4, Math.min(4, player.vy));
+    if ((keys['ArrowUp'] || keys['w'] || keys['W'] || keys[' ']) && player.swimTimer <= 0) {
+      player.vy = -4;
+      player.swimTimer = 8;
+    }
+  } else {
+    player.vy += GRAVITY;
+    if ((keys['ArrowUp'] || keys['w'] || keys['W'] || keys[' ']) && player.onGround) {
+      player.vy = JUMP_V;
+    }
+  }
+  if (player.swimTimer > 0) player.swimTimer--;
+
+  player.x += player.vx;
+  resolveCollision();
+  player.y += player.vy;
+  resolveCollision();
+
+  // Water check
+  const cx = Math.floor((player.x + player.w / 2) / TILE);
+  const cy = Math.floor((player.y + player.h / 2) / TILE);
+  player.inWater = getBlock(cx, cy) === B.WATER;
+
+  // World bounds
+  player.x = Math.max(0, Math.min(WORLD_W * TILE - player.w, player.x));
+  if (player.y > WORLD_H * TILE) {
+    player.y = 0; player.vy = 0;
+    player.hp = Math.max(0, player.hp - 2);
+    showMsg('Aua! Du bist gefallen!');
+  }
+}
+
+function updateBreaking(dt) {
+  const { bx, by } = getMouseBlock();
+  const dist = Math.hypot(bx - (player.x + player.w / 2) / TILE, by - (player.y + player.h / 2) / TILE);
+
+  if (mouse.left && dist < 8 && getBlock(bx, by) !== B.AIR && getBlock(bx, by) !== B.BEDROCK) {
+    if (!player.breakTarget || player.breakTarget.bx !== bx || player.breakTarget.by !== by) {
+      player.breakTarget = { bx, by };
+      player.breakProgress = 0;
+    }
+    const info = BLOCK_INFO[getBlock(bx, by)];
+    player.breakProgress += dt / (info ? info.hardness * 30 : 30);
+    if (player.breakProgress >= 1) {
+      const type = getBlock(bx, by);
+      const drop = blockDrop(type);
+      if (drop) addItem(drop);
+      setBlock(bx, by, B.AIR);
+      player.breakTarget = null;
+      player.breakProgress = 0;
+      lightDirty = true;
+      showMsg(`${BLOCK_INFO[type]?.name || 'Block'} abgebaut`);
+    }
+  } else {
+    if (!mouse.left) { player.breakTarget = null; player.breakProgress = 0; }
+  }
+}
+
+function tryPlace(bx, by) {
+  const item = getHotbarItem();
+  if (!item || item.count <= 0 || !item.type) return;
+  const dist = Math.hypot(bx - (player.x + player.w / 2) / TILE, by - (player.y + player.h / 2) / TILE);
+  if (dist > 8) return;
+  if (getBlock(bx, by) !== B.AIR) return;
+
+  // Don't place inside player
+  const pb = playerAABB();
+  const bb = blockAABB(bx, by);
+  if (aabbOverlap(pb, bb)) return;
+
+  setBlock(bx, by, item.type);
+  item.count--;
+  if (item.count <= 0) { item.type = 0; item.count = 0; }
+  lightDirty = true;
+}
+
+function update(dt) {
+  time = (time + dt / DAY_LEN) % 1;
+
+  if (lightDirty) {
+    ambientLight = calcLight(time);
+    lightDirty = false;
+  } else {
+    ambientLight = 0.1 + Math.max(0, Math.sin(time * Math.PI * 2)) * 0.9;
+  }
+
+  updatePhysics();
+  updateBreaking(dt);
+
+  // Right click place
+  if (mouse.right && rightClickThrottle <= 0) {
+    const { bx, by } = getMouseBlock();
+    tryPlace(bx, by);
+    rightClickThrottle = 12;
+  }
+  if (rightClickThrottle > 0) rightClickThrottle--;
+
+  // Camera follow player
+  camX = player.x + player.w / 2 - W / 2;
+  camY = player.y + player.h / 2 - H / 2;
+  camX = Math.max(0, Math.min(WORLD_W * TILE - W, camX));
+  camY = Math.max(0, Math.min(WORLD_H * TILE - H, camY));
+
+  // Message fade
+  if (msgTimer > 0) { msgTimer--; if (msgTimer === 0) document.getElementById('msg').style.opacity = '0'; }
+}
+
+function drawSky() {
+  const t = time;
+  const dayPhase = Math.sin(t * Math.PI * 2);
+  let skyTop, skyBot;
+  if (dayPhase > 0) {
+    const d = dayPhase;
+    skyTop = `rgb(${lerpC([10,10,40],[30,80,180],d)})`;
+    skyBot = `rgb(${lerpC([20,20,60],[100,160,230],d)})`;
+  } else {
+    const n = -dayPhase;
+    skyTop = `rgb(${lerpC([10,10,40],[5,5,20],n)})`;
+    skyBot = `rgb(${lerpC([20,20,60],[10,10,30],n)})`;
+  }
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, skyTop);
+  grad.addColorStop(1, skyBot);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Sun / Moon
+  const sunAngle = time * Math.PI * 2 - Math.PI / 2;
+  const sunX = W / 2 + Math.cos(sunAngle) * (W * 0.45);
+  const sunY = H / 2 + Math.sin(sunAngle) * (H * 0.4);
+  const isDay = Math.sin(time * Math.PI * 2) > -0.1;
+  if (isDay) {
+    ctx.save();
+    ctx.shadowColor = '#ffe066'; ctx.shadowBlur = 30;
+    ctx.fillStyle = '#ffe066';
+    ctx.beginPath(); ctx.arc(sunX, sunY, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.fillStyle = '#ddf'; ctx.beginPath();
+    ctx.arc(sunX, sunY, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#99b'; ctx.beginPath();
+    ctx.arc(sunX - 5, sunY - 3, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // Stars
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 60; i++) {
+      const sx = (i * 137.5 % W);
+      const sy = (i * 73.2 % (H * 0.6));
+      ctx.fillRect(sx, sy, 1.5, 1.5);
+    }
+  }
+}
+
+function lerpC(a, b, t) {
+  return a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',');
+}
+
+function drawWorld() {
+  const x0 = Math.max(0, Math.floor(camX / TILE));
+  const x1 = Math.min(WORLD_W - 1, Math.ceil((camX + W) / TILE));
+  const y0 = Math.max(0, Math.floor(camY / TILE));
+  const y1 = Math.min(WORLD_H - 1, Math.ceil((camY + H) / TILE));
+
+  for (let bx = x0; bx <= x1; bx++) {
+    for (let by = y0; by <= y1; by++) {
+      const type = getBlock(bx, by);
+      if (type === B.AIR) continue;
+      const sx = bx * TILE - camX, sy = by * TILE - camY;
+
+      drawBlock(ctx, type, sx, sy, TILE);
+
+      // Darkness overlay
+      const light = Math.min(1, ambientLight + (type === B.TORCH ? 0.8 : 0));
+      if (light < 1) {
+        ctx.fillStyle = `rgba(0,0,0,${(1 - light) * 0.85})`;
+        ctx.fillRect(sx, sy, TILE, TILE);
+      }
+    }
+  }
+
+  // Break progress
+  if (player.breakTarget) {
+    const { bx, by } = player.breakTarget;
+    const sx = bx * TILE - camX, sy = by * TILE - camY;
+    const p = player.breakProgress;
+    ctx.fillStyle = `rgba(0,0,0,${p * 0.6})`;
+    ctx.fillRect(sx, sy, TILE, TILE);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
+    // Crack lines
+    ctx.strokeStyle = `rgba(0,0,0,${p * 0.9})`;
+    ctx.lineWidth = p * 3;
+    for (let i = 0; i < Math.floor(p * 5); i++) {
+      const cx = sx + TILE * (0.2 + (i * 0.15));
+      ctx.beginPath(); ctx.moveTo(cx, sy); ctx.lineTo(sx + TILE * (0.5 + i * 0.1), sy + TILE); ctx.stroke();
+    }
+
+    // Break progress bar
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(sx, sy + TILE - 6, TILE, 6);
+    ctx.fillStyle = '#4ade80';
+    ctx.fillRect(sx, sy + TILE - 6, TILE * p, 6);
+  }
+
+  // Mouse highlight
+  const { bx, by } = getMouseBlock();
+  const dist = Math.hypot(bx - (player.x + player.w / 2) / TILE, by - (player.y + player.h / 2) / TILE);
+  if (dist < 8) {
+    const sx = bx * TILE - camX, sy = by * TILE - camY;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx + 1, sy + 1, TILE - 2, TILE - 2);
+    // Block name tooltip
+    const hoverType = getBlock(bx, by);
+    if (hoverType !== B.AIR && BLOCK_INFO[hoverType]) {
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(sx - 10, sy - 22, BLOCK_INFO[hoverType].name.length * 7 + 10, 18);
+      ctx.fillStyle = '#fff'; ctx.font = '12px Courier New';
+      ctx.fillText(BLOCK_INFO[hoverType].name, sx - 5, sy - 8);
+    }
+  }
+}
+
+function drawPlayer() {
+  const sx = player.x - camX, sy = player.y - camY;
+  const pw = player.w, ph = player.h;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(sx + pw / 2, sy + ph + 2, pw / 2, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Body
+  ctx.fillStyle = '#4a90d9';
+  ctx.fillRect(sx + pw * 0.1, sy + ph * 0.35, pw * 0.8, ph * 0.45);
+
+  // Head
+  ctx.fillStyle = '#f5c8a0';
+  ctx.fillRect(sx + pw * 0.15, sy + ph * 0.05, pw * 0.7, pw * 0.65);
+
+  // Eyes
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(sx + pw * 0.25, sy + ph * 0.15, pw * 0.15, pw * 0.12);
+  ctx.fillRect(sx + pw * 0.6, sy + ph * 0.15, pw * 0.15, pw * 0.12);
+
+  // Legs (animated)
+  const legAnim = Math.sin(Date.now() / 120) * (Math.abs(player.vx) > 0.5 ? 0.15 : 0);
+  ctx.fillStyle = '#2d4a8a';
+  ctx.fillRect(sx + pw * 0.1, sy + ph * 0.8, pw * 0.32, ph * 0.2 + legAnim * ph);
+  ctx.fillRect(sx + pw * 0.58, sy + ph * 0.8, pw * 0.32, ph * 0.2 - legAnim * ph);
+
+  // Arms
+  ctx.fillStyle = '#f5c8a0';
+  ctx.fillRect(sx - pw * 0.1, sy + ph * 0.35, pw * 0.2, ph * 0.35);
+  ctx.fillRect(sx + pw * 0.9, sy + ph * 0.35, pw * 0.2, ph * 0.35);
+
+  // Held item in hand
+  const item = getHotbarItem();
+  if (item && item.count > 0 && item.type) {
+    const hx = sx + pw * 0.9;
+    const hy = sy + ph * 0.5;
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.rotate(0.3);
+    drawBlock(ctx, item.type, 0, 0, 14);
+    ctx.restore();
+  }
+
+  // Water ripple
+  if (player.inWater) {
+    ctx.fillStyle = 'rgba(26,107,181,0.5)';
+    ctx.fillRect(sx - 4, sy + ph * 0.5, pw + 8, ph * 0.5 + 4);
+  }
+}
+
+function drawHUD() {
+  // Health
+  const heartEl = document.getElementById('health-bar');
+  heartEl.innerHTML = '';
+  for (let i = 0; i < player.maxHp; i++) {
+    const h = document.createElement('span');
+    h.className = 'heart';
+    h.textContent = i < player.hp ? '❤️' : '🖤';
+    heartEl.appendChild(h);
+  }
+  // Position
+  const bx = Math.floor((player.x + player.w / 2) / TILE);
+  const by = Math.floor((player.y + player.h / 2) / TILE);
+  document.getElementById('stat-pos').textContent = `X:${bx} Y:${by}`;
+  const biome = getBiome(bx);
+  const biomeNames = { desert: 'Wüste', plains: 'Ebene', forest: 'Wald', taiga: 'Taiga', mountains: 'Berge' };
+  document.getElementById('stat-biome').textContent = biomeNames[biome] || biome;
+
+  // Hotbar
+  const hotbar = document.getElementById('hotbar');
+  hotbar.innerHTML = '';
+  for (let i = 0; i < HOTBAR_SLOTS; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'slot' + (i === hotbarActive ? ' active' : '');
+    const item = inventory[i];
+    if (item && item.count > 0 && item.type) {
+      const sc = document.createElement('canvas');
+      sc.width = 28; sc.height = 28;
+      const sctx = sc.getContext('2d');
+      drawBlock(sctx, item.type, 0, 0, 28);
+      slot.appendChild(sc);
+      const cnt = document.createElement('span');
+      cnt.className = 'count';
+      cnt.textContent = item.count;
+      slot.appendChild(cnt);
+    }
+    hotbar.appendChild(slot);
+  }
+
+  // Day time indicator
+  const timeStr = Math.floor(time * 24).toString().padStart(2, '0') + ':' +
+                  Math.floor((time * 24 * 60) % 60).toString().padStart(2, '0');
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(W - 80, 8, 72, 24);
+  ctx.fillStyle = time > 0.25 && time < 0.75 ? '#ffe066' : '#aac';
+  ctx.font = 'bold 14px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText(timeStr, W - 44, 25);
+  ctx.textAlign = 'left';
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  drawSky();
+  drawWorld();
+  drawPlayer();
+  drawHUD();
+}
+
+let lastTime = 0;
+function loop(ts) {
+  const dt = Math.min((ts - lastTime) / (1000 / 60), 3);
+  lastTime = ts;
+  update(dt);
+  draw();
+  frameId = requestAnimationFrame(loop);
+}
+
+// Input handling
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  const n = parseInt(e.key);
+  if (n >= 1 && n <= 9) { hotbarActive = n - 1; }
+  if (e.key === 'e' || e.key === 'E') showMsg('Inventar: Nutze 1-9 für Hotbar-Slots');
+  if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  mouse.x = (e.clientX - rect.left) * scaleX;
+  mouse.y = (e.clientY - rect.top) * scaleY;
+});
+canvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  if (e.button === 0) mouse.left = true;
+  if (e.button === 2) mouse.right = true;
+});
+canvas.addEventListener('mouseup', e => {
+  if (e.button === 0) mouse.left = false;
+  if (e.button === 2) mouse.right = false;
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', e => {
+  hotbarActive = (hotbarActive + (e.deltaY > 0 ? 1 : -1) + HOTBAR_SLOTS) % HOTBAR_SLOTS;
+  e.preventDefault();
+}, { passive: false });
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('overlay').style.display = 'none';
+  if (!running) {
+    generateWorld();
+    initInventory();
+    spawnPlayer();
+    lightDirty = true;
+    running = true;
+    lastTime = performance.now();
+    frameId = requestAnimationFrame(loop);
+    showMsg('Willkommen in MiniCraft! Links: abbauen, Rechts: setzen');
+  }
+});
+</script>
 </body>
 </html>
